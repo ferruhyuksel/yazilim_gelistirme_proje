@@ -4,18 +4,35 @@
 Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
 
 ## Karar Verilenler
-- Eğitmen hesabı sabit, sadece biz oluşturuyoruz.
-- Öğrenci hesabı: hem kayıt ekranı hem eğitmenin ekleyebilmesi.
-
+- Eğitmen hesabı sabit (egitmen / egitmen123, ilk girişte değiştirilecek).
+- Öğrenci hesabı: kayıt ekranı + eğitmenin ekleyebilmesi (eğitmen tarafı henüz yok).
+- Mimari: iki ayrı uygulama. Eğitmen uygulaması DB + sunucuyu çalıştırır, öğrenci
+  uygulaması DB içermez, sadece sunucuya bağlanır.
+- Protokol: TCP, 4 bayt uzunluk başlığı + UTF-8 JSON. Port 5050.
+- Kimlik: giriş sonrası token. Token yalnızca girişin yapıldığı bağlantıda geçerli,
+  kullanıcı kimliği istemciden değil token'dan bulunur.
+- Ağdan gelen kayıt isteği rolü her zaman "öğrenci" yapar (sunucuda sabit).
+- Arayüz, servis katmanı üzerinden konuşur: LocalAuthService (eğitmen) ve
+  NetworkAuthService (öğrenci) aynı metotlara sahip.
 
 ## Tamamlananlar
 - [x] Aşama 0: Kurulum ve klasör yapısı
-- [x] Aşama 1a: DB şeması + kullanıcı/giriş fonksiyonları (db/database.py, test: python -m db.test_db)
+- [x] Aşama 1a: DB şeması + kullanıcı/giriş (db/database.py, test: python -m db.test_db)
+- [x] Aşama 1b: Giriş/kayıt ekranları, oturum, rol yönlendirme, ortak tema, uyarı pencereleri
+- [x] Aşama 2a: Ağ katmanı (common/protocol.py, server/server.py, client/network_client.py,
+      client/network_auth_service.py). Test: python -m server.test_server
 
 ## Sıradaki
-- [ ] Aşama 1b: Giriş ve kayıt ekranları (PySide6), rol yönlendirmesi
+- [ ] Aşama 2b: Arayüzü ağa bağlama: main_instructor.py (sunucuyu başlatır, bağlı
+      istemcileri gösterir), main_student.py (sunucuya bağlan ekranı + giriş).
+      Sonra gerçek LAN testi (2 bilgisayar).
 
 ## Notlar (rapor için)
-- Varsayılan eğitmen: egitmen / egitmen123 (ilk girişte değiştirilecek)
-- Şifreler bcrypt ile hash'li saklanıyor, authenticate() hash döndürmüyor
-- Her DB işlemi kendi bağlantısını açıp kapatıyor (sunucu thread güvenliği için)
+- Şifreler bcrypt ile hash'li, authenticate() hash döndürmüyor.
+- Her DB işlemi kendi bağlantısını açıp kapatıyor (thread güvenliği).
+- Sunucu: accept thread + her istemciye ayrı thread, paylaşılan veri Lock ile korunuyor.
+- Hata ayıklama: stop() sırasında accept thread beklerken soket kapatılırsa port kısa
+  süre açık kalıyordu. Önce shutdown + thread join, sonra close ile çözüldü.
+- Güvenlik duvarı: sınıfta 5050/tcp engellenirse "sudo ufw allow 5050/tcp".
+- Bilinen eksikler: aynı kullanıcının iki bilgisayardan aynı anda girişi engellenmiyor,
+  giriş denemesi sınırlaması yok (sınav aşamasında değerlendirilecek).
