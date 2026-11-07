@@ -5,6 +5,9 @@ Tüm pencereler bu stil dosyasını main.py üzerinden otomatik alır.
 Görünümü değiştirmek için sadece bu dosyadaki COLORS ve STYLESHEET düzenlenir.
 """
 
+import base64
+import tempfile
+from pathlib import Path
 from string import Template
 
 COLORS = {
@@ -23,6 +26,22 @@ COLORS = {
     "success": "#1E7A46",
 }
 
+# Açılır kutu oku (12x8 PNG). Qt stil dosyası ancak dosya yolu kabul ettiği için
+# çalışma anında geçici klasöre yazılır.
+_ARROW_PNG_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAwAAAAICAYAAADN5B7xAAABCklEQVR4nGNgQAL19fVMDGgAmxhDTFplQERKaSQDAwNDWloaK0wcxg5LKHKPTCtLrK+vZ2Ksr69nuvP8x2ZePkGvDx9eh66Y07vGvr6eRf35c8ZZs2b9jkwssuHk5Tv84/u3a6y/OI0Z6+vrmZ4/Z+D4wfx7MzsHl9PXz59Sls3pmsvAwMAQllzsy8XJvYHh///rf/5+c1oyo/c1IwPDf0YGBsb/oaGFnOzCnEt4ePmDPn98l8rAwPCci5t3y8+f34++f/c5ePOKSS/h/kH2WGxG5bLk/Kb/SXmN/+Myqg7Yx8dzYPV8fX09E0wwJq1idUxGxZ7Q0EJOBgYGhtDQUGaMkIKA/4yEghUAFyZo2C3v180AAAAASUVORK5CYII="
+)
+
+
+def _arrow_path():
+    path = Path(tempfile.gettempdir()) / "sinav_sistemi_arrow_down.png"
+    try:
+        path.write_bytes(base64.b64decode(_ARROW_PNG_B64))
+    except OSError:
+        pass  # yazılamazsa ok görünmez ama uygulama çalışır
+    return path.as_posix()
+
+
 _STYLESHEET = Template("""
 QWidget {
     color: $ink;
@@ -32,7 +51,7 @@ QWidget {
 QMainWindow, QDialog { background: $bg; }
 QLabel { background: transparent; }
 
-QLineEdit {
+QLineEdit, QPlainTextEdit, QDoubleSpinBox, QComboBox {
     background: $surface;
     border: 1px solid $border;
     border-radius: 6px;
@@ -41,7 +60,7 @@ QLineEdit {
     selection-background-color: $primary;
     selection-color: #FFFFFF;
 }
-QLineEdit:focus { border: 1px solid $primary; }
+QLineEdit:focus, QPlainTextEdit:focus, QDoubleSpinBox:focus, QComboBox:focus { border: 1px solid $primary; }
 
 QPushButton {
     background: $surface;
@@ -114,6 +133,50 @@ QHeaderView::section {
     padding: 8px 10px;
     font-weight: 600;
 }
+
+QPushButton[variant="danger"] { background: $danger; border: 1px solid $danger; color: #FFFFFF; }
+QPushButton[variant="danger"]:hover { background: #8F1F19; border-color: #8F1F19; }
+QPushButton[variant="icon"] {
+    border: none; background: transparent; color: $muted; padding: 6px 10px; font-size: 18px;
+}
+QPushButton[variant="icon"]:hover { color: $danger; background: transparent; }
+
+QLabel#pageTitle { font-size: 24px; font-weight: 700; }
+QLabel#optionLetter { font-weight: 700; color: $muted; min-width: 18px; }
+QLabel#countLabel { color: $muted; }
+QLabel#emptyState { color: $muted; font-size: 16px; }
+QRadioButton { spacing: 8px; }
+
+QListWidget {
+    background: $surface; border: 1px solid $border; border-radius: 6px; padding: 4px; outline: none;
+}
+QListWidget::item { padding: 10px 12px; border-radius: 4px; }
+QListWidget::item:selected { background: #DCE7F7; color: $ink; }
+QComboBox QAbstractItemView {
+    background: $surface; border: 1px solid $border;
+    selection-background-color: #DCE7F7; selection-color: $ink; outline: none;
+}
+
+QScrollArea { background: transparent; border: none; }
+QScrollArea > QWidget > QWidget { background: transparent; }
+
+QTabWidget::pane { border: none; border-top: 1px solid $border; }
+QTabWidget::tab-bar { left: 28px; }
+QTabBar::tab {
+    padding: 14px 22px; margin-right: 4px; font-weight: 600; color: $muted;
+    background: transparent; border: none; border-bottom: 3px solid transparent;
+}
+QTabBar::tab:selected { color: $primary; border-bottom: 3px solid $primary; }
+QTabBar::tab:hover:!selected { color: $ink; }
+
+QComboBox { padding-right: 36px; }
+QComboBox::drop-down { border: none; background: transparent; width: 34px; }
+QComboBox::down-arrow { image: url($arrow); width: 12px; height: 8px; margin-right: 14px; }
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button { width: 0px; border: none; }
+
+QPushButton:disabled { color: #9AA3B2; background: $bg; border-color: $border; }
+QPushButton[variant="primary"]:disabled { background: #9DB8E3; border-color: #9DB8E3; color: #FFFFFF; }
+QPushButton[variant="link"]:disabled { background: transparent; border: none; }
 """)
 
-STYLESHEET = _STYLESHEET.substitute(COLORS)
+STYLESHEET = _STYLESHEET.substitute(COLORS, arrow=_arrow_path())

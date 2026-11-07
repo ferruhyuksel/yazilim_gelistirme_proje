@@ -11,7 +11,7 @@ Sonraki aşamalarda eklenecek:
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView, QFrame, QHBoxLayout, QHeaderView, QLabel, QMainWindow,
-    QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from common.net_utils import get_local_ip
@@ -123,8 +123,18 @@ class BasePanel(QMainWindow):
 class InstructorPanel(BasePanel):
     TITLE = "Eğitmen paneli"
     ROLE_LABEL = "Eğitmen"
-    HINT = ("Soru bankası, sınav oluşturma, sonuçlar ve loglar sonraki "
-            "aşamalarda bu panele eklenecek.")
+    HINT = ("Soru bankası hazır. Sınav oluşturma, sonuçlar ve loglar sonraki "
+            "aşamalarda eklenecek.")
+
+    def _build_body(self):
+        # Soru bankası yalnızca eğitmen tarafında kullanıldığı için burada içe aktarılır
+        # (öğrenci uygulaması veritabanı modüllerini hiç yüklemez).
+        from ui.question_bank_view import QuestionBankView
+
+        tabs = QTabWidget()
+        tabs.addTab(super()._build_body(), "Genel bakış")
+        tabs.addTab(QuestionBankView(self.user["id"]), "Soru bankası")
+        return tabs
 
     def _extra_widgets(self):
         return [self._build_server_card()]
@@ -159,6 +169,7 @@ class InstructorPanel(BasePanel):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setShowGrid(False)
+        self.table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         layout = QVBoxLayout(card)

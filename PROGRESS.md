@@ -16,6 +16,8 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
   NetworkAuthService (öğrenci) aynı metotlara sahip.
 
 ## Tamamlananlar
+- [x] Aşama 3: Soru bankası (db/question_bank.py, test: python -m db.test_question_bank;
+      eğitmen panelinde 'Soru bankası' sekmesi, kategori yönetimi)
 - [x] Aşama 2b: main_instructor.py (sunucu + canlı istemci listesi), main_student.py (bağlan + giriş),
       aynı bilgisayarda iki uygulamayla test edildi. Eski main.py silindi.
 - [x] Aşama 0: Kurulum ve klasör yapısı
@@ -25,11 +27,15 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
       client/network_auth_service.py). Test: python -m server.test_server
 
 ## Sıradaki
+- [ ] Aşama 4: Sınav oluşturma ve dağıtım (aşağıdaki eski satırlar geçerli)
 - [ ] Aşama 2c (gerçek LAN testi, 2 bilgisayar) ve Aşama 3 (soru bankası). Önce: Arayüzü ağa bağlama: main_instructor.py (sunucuyu başlatır, bağlı
       istemcileri gösterir), main_student.py (sunucuya bağlan ekranı + giriş).
       
 
 ## Notlar (rapor için)
+- Çoktan seçmelide doğru cevap şık SIRASI olarak saklanır (answer_key = "2"), öğrenci cevabı da sıra olarak gelecek.
+- Sınavda kullanılan soru silinemez, yayınlanmış/kapanmış sınavdaki soru düzenlenemez (cascade ile öğrenci cevaplarının silinmesini önler).
+- Kategori silinince sorular kalır, kategorisiz olur.
 - Şifreler bcrypt ile hash'li, authenticate() hash döndürmüyor.
 - Her DB işlemi kendi bağlantısını açıp kapatıyor (thread güvenliği).
 - Sunucu: accept thread + her istemciye ayrı thread, paylaşılan veri Lock ile korunuyor.
