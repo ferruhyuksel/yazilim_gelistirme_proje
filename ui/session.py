@@ -16,10 +16,10 @@ class Session:
         self._user = None
         self._token = None
 
-    def start(self, user):
+    def start(self, user, token=None):
         """Giriş başarılı olunca çağrılır. user: authenticate() çıktısı (sözlük)."""
         self._user = dict(user)
-        self._token = secrets.token_hex(16)
+        self._token = token or secrets.token_hex(16)
 
     def end(self):
         """Çıkış yapınca çağrılır, tüm oturum verisi silinir."""

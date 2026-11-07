@@ -48,15 +48,43 @@ def _heading(title, hint):
     return t, h
 
 
+def build_brand_panel():
+    panel = QFrame()
+    panel.setObjectName("brandPanel")
+    panel.setFixedWidth(330)
+
+    title = QLabel("Sınav\nSistemi")
+    title.setObjectName("brandTitle")
+    text = QLabel(
+        "Çoktan seçmeli ve klasik sorular, yerel ağda eğitmen "
+        "bilgisayarından öğrencilere dağıtılır. İnternet gerekmez."
+    )
+    text.setObjectName("brandText")
+    text.setWordWrap(True)
+    foot = QLabel("Yazılım Geliştirme I dönem projesi")
+    foot.setObjectName("brandFoot")
+
+    layout = QVBoxLayout(panel)
+    layout.setContentsMargins(40, 56, 40, 40)
+    layout.setSpacing(18)
+    layout.addWidget(title)
+    layout.addWidget(text)
+    layout.addStretch()
+    layout.addWidget(foot)
+    return panel
+
+
 class LoginWindow(QWidget):
     login_success = Signal(dict)
 
     PAGE_LOGIN = 0
     PAGE_REGISTER = 1
 
-    def __init__(self, service):
+    def __init__(self, service, allow_register=True, change_server_callback=None):
         super().__init__()
         self.service = service
+        self.allow_register = allow_register
+        self.change_server_callback = change_server_callback
         self.setWindowTitle("Sınav Sistemi - Giriş")
         self.setFixedSize(900, 620)
 
@@ -80,29 +108,7 @@ class LoginWindow(QWidget):
     # ------------------------------------------------------------------
 
     def _build_brand_panel(self):
-        panel = QFrame()
-        panel.setObjectName("brandPanel")
-        panel.setFixedWidth(330)
-
-        title = QLabel("Sınav\nSistemi")
-        title.setObjectName("brandTitle")
-        text = QLabel(
-            "Çoktan seçmeli ve klasik sorular, yerel ağda eğitmen "
-            "bilgisayarından öğrencilere dağıtılır. İnternet gerekmez."
-        )
-        text.setObjectName("brandText")
-        text.setWordWrap(True)
-        foot = QLabel("Yazılım Geliştirme I dönem projesi")
-        foot.setObjectName("brandFoot")
-
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(40, 56, 40, 40)
-        layout.setSpacing(18)
-        layout.addWidget(title)
-        layout.addWidget(text)
-        layout.addStretch()
-        layout.addWidget(foot)
-        return panel
+        return build_brand_panel()
 
     def _build_login_page(self):
         page = QWidget()
@@ -117,6 +123,11 @@ class LoginWindow(QWidget):
         login_btn.clicked.connect(self._on_login)
         register_btn = _button("Hesabın yok mu? Öğrenci kaydı oluştur", "link")
         register_btn.clicked.connect(lambda: self._show_page(self.PAGE_REGISTER))
+        register_btn.setVisible(self.allow_register)
+        server_btn = _button("Sunucuyu değiştir", "link")
+        if self.change_server_callback:
+            server_btn.clicked.connect(self.change_server_callback)
+        server_btn.setVisible(self.change_server_callback is not None)
 
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -130,6 +141,7 @@ class LoginWindow(QWidget):
         layout.addSpacing(6)
         layout.addWidget(login_btn)
         layout.addWidget(register_btn)
+        layout.addWidget(server_btn)
         layout.addStretch()
         return page
 

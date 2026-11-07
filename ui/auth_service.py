@@ -44,3 +44,7 @@ class LocalAuthService:
             raise AuthError(str(e))
         if not ok:
             raise AuthError("Mevcut şifre hatalı.")
+
+    def logout(self):
+        """Yerel serviste kapatılacak bir bağlantı yok. NetworkAuthService ile aynı arayüz."""
+        pass

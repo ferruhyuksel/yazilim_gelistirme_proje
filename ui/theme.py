@@ -93,6 +93,27 @@ QLabel#msgTitle { font-size: 20px; font-weight: 700; }
 QLabel#msgTitle[kind="error"] { color: $danger; }
 QLabel#msgTitle[kind="info"] { color: $success; }
 QLabel#msgText { font-size: 15px; color: $ink; }
+
+QLabel#sectionTitle { font-size: 18px; font-weight: 700; }
+QLabel#statusOk { color: $success; font-weight: 600; }
+QLabel#serverAddress { font-size: 30px; font-weight: 700; color: $primary; }
+
+QTableWidget {
+    background: $surface;
+    border: 1px solid $border;
+    border-radius: 6px;
+    gridline-color: transparent;
+    selection-background-color: #DCE7F7;
+    selection-color: $ink;
+}
+QTableWidget::item { padding: 6px 10px; }
+QHeaderView::section {
+    background: $bg;
+    border: none;
+    border-bottom: 1px solid $border;
+    padding: 8px 10px;
+    font-weight: 600;
+}
 """)
 
 STYLESHEET = _STYLESHEET.substitute(COLORS)

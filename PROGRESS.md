@@ -16,6 +16,8 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
   NetworkAuthService (öğrenci) aynı metotlara sahip.
 
 ## Tamamlananlar
+- [x] Aşama 2b: main_instructor.py (sunucu + canlı istemci listesi), main_student.py (bağlan + giriş),
+      aynı bilgisayarda iki uygulamayla test edildi. Eski main.py silindi.
 - [x] Aşama 0: Kurulum ve klasör yapısı
 - [x] Aşama 1a: DB şeması + kullanıcı/giriş (db/database.py, test: python -m db.test_db)
 - [x] Aşama 1b: Giriş/kayıt ekranları, oturum, rol yönlendirme, ortak tema, uyarı pencereleri
@@ -23,9 +25,9 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
       client/network_auth_service.py). Test: python -m server.test_server
 
 ## Sıradaki
-- [ ] Aşama 2b: Arayüzü ağa bağlama: main_instructor.py (sunucuyu başlatır, bağlı
+- [ ] Aşama 2c (gerçek LAN testi, 2 bilgisayar) ve Aşama 3 (soru bankası). Önce: Arayüzü ağa bağlama: main_instructor.py (sunucuyu başlatır, bağlı
       istemcileri gösterir), main_student.py (sunucuya bağlan ekranı + giriş).
-      Sonra gerçek LAN testi (2 bilgisayar).
+      
 
 ## Notlar (rapor için)
 - Şifreler bcrypt ile hash'li, authenticate() hash döndürmüyor.

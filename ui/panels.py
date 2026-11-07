@@ -1,16 +1,20 @@
 """
 ui/panels.py
-Eğitmen ve öğrenci panellerinin iskeleti. Şimdilik üst çubuk (kullanıcı bilgisi,
-şifre değiştirme, çıkış) ve karşılama kartı var. Sonraki aşamalarda doldurulacak:
+Eğitmen ve öğrenci panelleri.
+
+Eğitmen paneli: sunucu adresi ve bağlı istemcilerin canlı listesi.
+Sonraki aşamalarda eklenecek:
   - Eğitmen: soru bankası, sınav oluşturma, sonuçlar, loglar
   - Öğrenci: sınav listesi ve sınav çözme ekranı
 """
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget,
+    QAbstractItemView, QFrame, QHBoxLayout, QHeaderView, QLabel, QMainWindow,
+    QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+from common.net_utils import get_local_ip
 from ui.change_password_dialog import ChangePasswordDialog
 
 
@@ -21,10 +25,11 @@ class BasePanel(QMainWindow):
     ROLE_LABEL = ""
     HINT = ""
 
-    def __init__(self, service, user):
+    def __init__(self, service, user, server=None):
         super().__init__()
         self.service = service
         self.user = user
+        self.server = server
         self.setWindowTitle(f"{self.TITLE} - {user['full_name']}")
         self.resize(1180, 760)
         self.setMinimumSize(960, 640)
@@ -98,9 +103,18 @@ class BasePanel(QMainWindow):
 
         layout = QVBoxLayout(body)
         layout.setContentsMargins(40, 36, 40, 36)
+        layout.setSpacing(20)
         layout.addWidget(card)
-        layout.addStretch()
+        extras = self._extra_widgets()
+        for widget in extras:
+            layout.addWidget(widget, stretch=1)
+        if not extras:
+            layout.addStretch()
         return body
+
+    def _extra_widgets(self):
+        """Alt sınıflar karşılama kartının altına eklenecek bileşenleri döner."""
+        return []
 
     def _change_password(self):
         ChangePasswordDialog(self.service, self.user["id"], self).exec()
@@ -111,6 +125,68 @@ class InstructorPanel(BasePanel):
     ROLE_LABEL = "Eğitmen"
     HINT = ("Soru bankası, sınav oluşturma, sonuçlar ve loglar sonraki "
             "aşamalarda bu panele eklenecek.")
+
+    def _extra_widgets(self):
+        return [self._build_server_card()]
+
+    def _build_server_card(self):
+        card = QFrame()
+        card.setObjectName("card")
+
+        title = QLabel("Sunucu")
+        title.setObjectName("sectionTitle")
+        status = QLabel("● Çalışıyor")
+        status.setObjectName("statusOk")
+        head = QHBoxLayout()
+        head.addWidget(title)
+        head.addStretch()
+        head.addWidget(status)
+
+        address = QLabel(f"{get_local_ip()}:{self.server.port}")
+        address.setObjectName("serverAddress")
+        address.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        hint = QLabel("Öğrenciler uygulamaya bu adresi girerek bağlanır. "
+                      "Hepsinin aynı ağda (LAN/WiFi) olması gerekir.")
+        hint.setObjectName("hint")
+        hint.setWordWrap(True)
+
+        self.clients_title = QLabel("Bağlı istemciler (0)")
+        self.clients_title.setObjectName("sectionTitle")
+
+        self.table = QTableWidget(0, 3)
+        self.table.setHorizontalHeaderLabels(["IP adresi", "Kullanıcı", "Bağlanma saati"])
+        self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setShowGrid(False)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(36, 28, 36, 28)
+        layout.setSpacing(10)
+        layout.addLayout(head)
+        layout.addWidget(address)
+        layout.addWidget(hint)
+        layout.addSpacing(10)
+        layout.addWidget(self.clients_title)
+        layout.addWidget(self.table, stretch=1)
+
+        # Sunucu başka thread'lerde çalışır. Arayüz thread'i listeyi saniyede bir
+        # güvenli kopya olarak okur, böylece thread'ler arası sinyal gerekmez.
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._refresh_clients)
+        self._timer.start(1000)
+        self._refresh_clients()
+        return card
+
+    def _refresh_clients(self):
+        clients = self.server.get_clients()
+        self.clients_title.setText(f"Bağlı istemciler ({len(clients)})")
+        self.table.setRowCount(len(clients))
+        for row, c in enumerate(clients):
+            values = (c["address"], c["username"] or "giriş yapmadı", c["connected_at"])
+            for col, value in enumerate(values):
+                self.table.setItem(row, col, QTableWidgetItem(value))
 
 
 class StudentPanel(BasePanel):
