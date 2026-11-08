@@ -16,6 +16,8 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
   NetworkAuthService (öğrenci) aynı metotlara sahip.
 
 ## Tamamlananlar
+- [x] Aşama 6: Eğitmen Sonuçlar ekranı, KLASİK SORULARIN ELLE PUANLANMASI, Loglar sekmesi
+      (ui/results_view.py, ui/grading_dialog.py, ui/log_view.py; veritabanı migration'ı eklendi)
 - [x] Aşama 4: Sınav oluşturma ve dağıtım (db/exams.py; testler: python -m db.test_exams,
       python -m server.test_server_exams; eğitmende 'Sınavlar' sekmesi, öğrencide canlı sınav listesi)
 - [x] Aşama 3: Soru bankası (db/question_bank.py, test: python -m db.test_question_bank;
@@ -29,6 +31,7 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
       client/network_auth_service.py). Test: python -m server.test_server
 
 ## Sıradaki
+- [ ] Aşama 7: Rapor (IEEE), diyagramlar, gerçek LAN testi (2+ bilgisayar), son kontroller
 - [ ] Aşama 5: Öğrenci sınav çözme ekranı (soruları göster, geri sayım, cevapları gönder)
 - [ ] Aşama 6: Cevap toplama, süre kontrolü sunucuda, log dosyaları
 - [ ] Aşama 4: Sınav oluşturma ve dağıtım (aşağıdaki eski satırlar geçerli)
@@ -37,6 +40,11 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
       
 
 ## Notlar (rapor için)
+- KARAR: Klasik sorular otomatik puanlanmaz. Dolu cevap graded=0 (bekliyor) kaydedilir, eğitmen cevabı beklenen cevapla yan yana görüp elle puanlar (db/submissions.py grade_answer). Puan 0 ile sorunun sınavdaki puanı arasında, 2 ondalığa yuvarlanır, tekrar puanlanabilir. Çoktan seçmeli sorular otomatik puanlanır.
+- Boş klasik cevap puanlanmayı beklemez (graded=1, 0 puan).
+- 'Beklenen cevapla birebir aynı' notu yalnızca ipucudur, puan vermez (matches_expected).
+- Veritabanı: answers.graded ve graded_at sütunları eklendi; db/database.py _migrate eski veritabanlarını açılışta günceller.
+- Her puanlama logs tablosuna yazılır. Loglar sekmesi logs/submissions.log dosyasını gösterir.
 - Dağıtım: öğrenci uygulaması sunucuya 3 sn'de bir sorar (polling); yayınlanan sınav en geç birkaç saniyede görünür.
 - Süre: yayınlanma anı = başlangıç, bitiş = başlangıç + süre. Süreyi sunucu hesaplar (istemci saatine güvenilmez), süre dolunca sınav otomatik kapanır.
 - Öğrenci paketi (db/exams.py get_exam_for_student) alanları tek tek seçerek oluşturulur: cevap anahtarı ağa çıkmaz. Testle doğrulanıyor (ham ağ yanıtında 'answer_key' ve beklenen cevap metni aranıyor).

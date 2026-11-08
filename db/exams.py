@@ -5,7 +5,8 @@ Sınavlar: oluşturma, düzenleme, yayınlama, sonlandırma ve öğrenciye sunul
 Yaşam döngüsü:  draft (taslak) -> published (yayında) -> closed (kapandı)
   - Yalnızca taslak sınav düzenlenebilir.
   - Yayınlanma anı sınavın başlangıcıdır, bitiş = başlangıç + süre.
-  - Süre dolan sınav otomatik 'closed' olur (close_expired_exams, her okumada çalışır).
+  - Süre dolan sınav, SUBMIT_GRACE_SECONDS sonra otomatik 'closed' olur (her okumada kontrol
+    edilir). O arada öğrencilere görünmez ama son gönderimler kabul edilir.
   - Öğrenci gönderimi olan sınav silinemez, yayındaki sınav silinemez.
 
 ÖĞRENCİYE CEVAP ANAHTARI GİTMEZ: öğrenci görünümü (list_active_exams,
@@ -30,6 +31,10 @@ STATUS_LABELS = {
     STATUS_PUBLISHED: "Yayında",
     STATUS_CLOSED: "Kapandı",
 }
+
+# Süresi dolan sınav, öğrencilerin son saniyedeki gönderimleri kabul edilebilsin diye
+# bu kadar saniye daha "yayında" kalır (öğrencilere görünmez). Ayrıntı: db/submissions.py
+SUBMIT_GRACE_SECONDS = 5
 
 MAX_TITLE = 120
 MIN_DURATION = 1
@@ -110,8 +115,9 @@ def _close_expired(conn):
     cur = conn.execute(
         "UPDATE exams SET status = 'closed' "
         "WHERE status = 'published' AND start_time IS NOT NULL "
-        "AND datetime(start_time, '+' || duration_minutes || ' minutes') "
-        "<= datetime('now', 'localtime')"
+        "AND datetime(start_time, '+' || duration_minutes || ' minutes', "
+        "'+' || ? || ' seconds') <= datetime('now', 'localtime')",
+        (SUBMIT_GRACE_SECONDS,),
     )
     conn.commit()
     return cur.rowcount

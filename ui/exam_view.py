@@ -48,9 +48,9 @@ class ExamView(QWidget):
         head.addStretch()
         head.addWidget(new_btn)
 
-        self.table = QTableWidget(0, 6)
+        self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(
-            ["Sınav", "Süre", "Soru", "Toplam puan", "Durum", "Kalan süre"])
+            ["Sınav", "Süre", "Soru", "Toplam puan", "Durum", "Kalan süre", "Gönderim"])
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setDefaultSectionSize(42)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -60,7 +60,7 @@ class ExamView(QWidget):
         header = self.table.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         header.setSectionResizeMode(0, QHeaderView.Stretch)
-        for col, width in ((1, 90), (2, 70), (3, 120), (4, 110), (5, 130)):
+        for col, width in ((1, 90), (2, 70), (3, 120), (4, 110), (5, 120), (6, 110)):
             header.setSectionResizeMode(col, QHeaderView.Fixed)
             self.table.setColumnWidth(col, width)
         self.table.itemSelectionChanged.connect(self._update_buttons)
@@ -118,7 +118,8 @@ class ExamView(QWidget):
             remaining = (format_remaining(e["remaining_seconds"])
                          if e["status"] == exam_db.STATUS_PUBLISHED else "—")
             cells = (e["title"], f"{e['duration_minutes']} dk", str(e["question_count"]),
-                     f"{e['total_points']:g}", exam_db.STATUS_LABELS[e["status"]], remaining)
+                     f"{e['total_points']:g}", exam_db.STATUS_LABELS[e["status"]], remaining,
+                     str(e["submission_count"]))
             for col, value in enumerate(cells):
                 item = QTableWidgetItem(value)
                 if col == 0:

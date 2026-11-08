@@ -35,3 +35,9 @@ class NetworkExamService:
     def get_exam(self, exam_id):
         """Sınav paketi (cevap anahtarı içermez)."""
         return self._call(protocol.GET_EXAM, {"exam_id": exam_id})["exam"]
+
+    def submit_exam(self, exam_id, answers):
+        """Cevapları gönderir. answers: {soru_id: şık sırası (int) ya da metin (str) ya da None}.
+        Başarılıysa {'submitted_at': ...} döner, reddedilirse ServiceError fırlatır."""
+        payload = {str(question_id): value for question_id, value in answers.items()}
+        return self._call(protocol.SUBMIT_EXAM, {"exam_id": exam_id, "answers": payload})

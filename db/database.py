@@ -91,7 +91,10 @@ CREATE TABLE IF NOT EXISTS answers (
     question_id   INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
     given_answer  TEXT,
     score         REAL    NOT NULL DEFAULT 0,
-    is_correct    INTEGER NOT NULL DEFAULT 0
+    is_correct    INTEGER NOT NULL DEFAULT 0,
+    -- graded = 0: eğitmenin elle puanlaması bekleniyor (dolu klasik cevaplar)
+    graded        INTEGER NOT NULL DEFAULT 1,
+    graded_at     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS logs (
@@ -117,12 +120,24 @@ def get_connection():
     return conn
 
 
+def _migrate(conn):
+    """Eski sürümlerde oluşturulmuş veritabanlarına sonradan eklenen sütunları ekler.
+    (CREATE TABLE IF NOT EXISTS mevcut tabloya dokunmaz, o yüzden gerekli.)
+    Eski cevap satırları 'puanlandı' (graded = 1) sayılır."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(answers)")}
+    if "graded" not in columns:
+        conn.execute("ALTER TABLE answers ADD COLUMN graded INTEGER NOT NULL DEFAULT 1")
+    if "graded_at" not in columns:
+        conn.execute("ALTER TABLE answers ADD COLUMN graded_at TEXT")
+
+
 def init_db():
-    """Tabloları oluşturur ve yoksa varsayılan eğitmen hesabını ekler.
-    Birden fazla kez çağrılması güvenlidir."""
+    """Tabloları oluşturur, eski veritabanlarını günceller ve yoksa varsayılan eğitmen
+    hesabını ekler. Birden fazla kez çağrılması güvenlidir."""
     conn = get_connection()
     try:
         conn.executescript(SCHEMA)
+        _migrate(conn)
         conn.commit()
     finally:
         conn.close()

@@ -14,12 +14,17 @@ import secrets
 import socket
 import threading
 from datetime import datetime
+from pathlib import Path
 
 from common import protocol as p
 from db import database as db
 from db import exams as exam_db
+from db import submissions as sub_db
 
 log = logging.getLogger("sinav.server")
+
+# Gönderim logları proje kökündeki logs/ klasörüne yazılır
+DEFAULT_LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 
 
 class RequestError(Exception):
@@ -27,9 +32,11 @@ class RequestError(Exception):
 
 
 class ExamServer:
-    def __init__(self, host="0.0.0.0", port=p.DEFAULT_PORT):
+    def __init__(self, host="0.0.0.0", port=p.DEFAULT_PORT, log_dir=None):
         self.host = host
         self.port = port
+        self.log_dir = Path(log_dir) if log_dir else DEFAULT_LOG_DIR
+        self._log_lock = threading.Lock()
         self._sock = None
         self._thread = None
         self._running = False
@@ -46,6 +53,7 @@ class ExamServer:
             p.LOGOUT: self._h_logout,
             p.LIST_EXAMS: self._h_list_exams,
             p.GET_EXAM: self._h_get_exam,
+            p.SUBMIT_EXAM: self._h_submit_exam,
         }
 
     # ------------------------------------------------------------------
@@ -277,3 +285,45 @@ class ExamServer:
             raise RequestError("Eksik veya geçersiz alan: exam_id")
         # Cevap anahtarsız öğrenci paketi (ayrıntı: db/exams.py)
         return {"exam": exam_db.get_exam_for_student(exam_id, session["user"]["id"])}
+
+    def _h_submit_exam(self, data, token, cid):
+        session = self._require_student(token, cid)
+        user = session["user"]
+        exam_id = data.get("exam_id")
+        if not isinstance(exam_id, int) or isinstance(exam_id, bool):
+            raise RequestError("Eksik veya geçersiz alan: exam_id")
+        answers = data.get("answers")
+        if not isinstance(answers, dict):
+            raise RequestError("Eksik veya geçersiz alan: answers")
+
+        with self._lock:
+            address = self._clients.get(cid, {}).get("address", "?")
+        who = f"ogrenci={user['username']} ({user['full_name']}) | ip={address}"
+
+        try:
+            result = sub_db.submit_exam(exam_id, user["id"], answers)
+        except ValueError as e:
+            title = sub_db.exam_title(exam_id) or "?"
+            sub_db.add_log(user["id"], exam_id, f"rejected: {e}")
+            self._write_submission_log("REDDEDILDI", exam_id, title, who, f"neden={e}")
+            raise
+        self._write_submission_log(
+            "GONDERIM", exam_id, result["exam_title"], who,
+            "gec=evet (tolerans icinde)" if result["late"] else "",
+        )
+        # Puan ve doğru sayısı bilerek ÖĞRENCİYE DÖNMEZ (sınav sürerken cevap sızmasın).
+        return {"submitted_at": result["submitted_at"]}
+
+    def _write_submission_log(self, kind, exam_id, title, who, extra=""):
+        """logs/submissions.log dosyasına tek satır ekler. Yazılamazsa sunucu etkilenmez."""
+        one_line = lambda text: " ".join(str(text).split())
+        parts = [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), kind,
+                 f'sinav=#{exam_id} "{one_line(title)}"', one_line(who)]
+        if extra:
+            parts.append(one_line(extra))
+        try:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+            with self._log_lock, open(self.log_dir / "submissions.log", "a", encoding="utf-8") as f:
+                f.write(" | ".join(parts) + "\n")
+        except OSError:
+            log.exception("Gönderim logu yazılamadı")

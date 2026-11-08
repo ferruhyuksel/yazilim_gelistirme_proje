@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from common.net_utils import get_local_ip
 from ui.change_password_dialog import ChangePasswordDialog
 from ui.formatting import format_remaining
+from ui.message_box import show_error, show_info
 
 
 class BasePanel(QMainWindow):
@@ -127,19 +128,23 @@ class BasePanel(QMainWindow):
 class InstructorPanel(BasePanel):
     TITLE = "Eğitmen paneli"
     ROLE_LABEL = "Eğitmen"
-    HINT = ("Soru bankası ve sınavlar hazır. Sonuçlar ve loglar sonraki "
-            "aşamalarda eklenecek.")
+    HINT = ("Sınav hazırlayıp yayınla, gelen cevapları Sonuçlar sekmesinde incele, "
+            "klasik soruları elle puanla.")
 
     def _build_body(self):
         # Soru bankası yalnızca eğitmen tarafında kullanıldığı için burada içe aktarılır
         # (öğrenci uygulaması veritabanı modüllerini hiç yüklemez).
         from ui.exam_view import ExamView
+        from ui.log_view import LogView
         from ui.question_bank_view import QuestionBankView
+        from ui.results_view import ResultsView
 
         tabs = QTabWidget()
         tabs.addTab(super()._build_body(), "Genel bakış")
         tabs.addTab(QuestionBankView(self.user["id"]), "Soru bankası")
         tabs.addTab(ExamView(self.user["id"], self.server), "Sınavlar")
+        tabs.addTab(ResultsView(), "Sonuçlar")
+        tabs.addTab(LogView(self.server.log_dir), "Loglar")
         return tabs
 
     def _extra_widgets(self):
@@ -209,7 +214,7 @@ class InstructorPanel(BasePanel):
 class StudentPanel(BasePanel):
     TITLE = "Öğrenci paneli"
     ROLE_LABEL = "Öğrenci"
-    HINT = "Eğitmenin yayınladığı sınavlar aşağıda görünür."
+    HINT = "Eğitmenin yayınladığı sınavlar aşağıda görünür. Bir sınavı seçip \"Sınava gir\" de."
 
     POLL_INTERVAL_MS = 3000
 
@@ -244,10 +249,23 @@ class StudentPanel(BasePanel):
             header.setSectionResizeMode(col, QHeaderView.Fixed)
             self.table.setColumnWidth(col, width)
 
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table.itemSelectionChanged.connect(self._on_selection)
+        self.table.itemDoubleClicked.connect(lambda _item: self._open_selected())
+
         self.empty_label = QLabel("Şu an aktif sınav yok.\n"
                                   "Eğitmen bir sınav yayınlayınca burada görünecek.")
         self.empty_label.setObjectName("emptyState")
         self.empty_label.setAlignment(Qt.AlignCenter)
+
+        self.open_btn = QPushButton("Sınava gir")
+        self.open_btn.setProperty("variant", "primary")
+        self.open_btn.setCursor(Qt.PointingHandCursor)
+        self.open_btn.setEnabled(False)
+        self.open_btn.clicked.connect(self._open_selected)
+        footer = QHBoxLayout()
+        footer.addStretch()
+        footer.addWidget(self.open_btn)
 
         layout = QVBoxLayout(card)
         layout.setContentsMargins(36, 28, 36, 28)
@@ -256,8 +274,12 @@ class StudentPanel(BasePanel):
         layout.addWidget(self.error_label)
         layout.addWidget(self.table, stretch=1)
         layout.addWidget(self.empty_label, stretch=1)
+        layout.addLayout(footer)
 
         self._exams = []
+        self._visible_ids = []
+        self._selected_exam_id = None
+        self._saved_answers = {}   # sınav id -> {soru id: cevap}; pencere kapanıp açılırsa korunur
         self._fetched_at = time.monotonic()
         # Sınavlar sunucudan birkaç saniyede bir sorulur (polling). Kalan süre iki
         # sorgu arasında yerel saatle geriye sayılır, her sorguda sunucu değeriyle düzeltilir.
@@ -293,6 +315,8 @@ class StudentPanel(BasePanel):
     def _render(self):
         elapsed = time.monotonic() - self._fetched_at
         rows = [e for e in self._exams if e["remaining_seconds"] - elapsed > 0]
+        self._visible_ids = [e["id"] for e in rows]
+        self.table.blockSignals(True)
         self.table.setRowCount(len(rows))
         for row, e in enumerate(rows):
             left = e["remaining_seconds"] - elapsed
@@ -301,5 +325,49 @@ class StudentPanel(BasePanel):
                      "Gönderildi" if e["submitted"] else "Çözülmedi")
             for col, value in enumerate(cells):
                 self.table.setItem(row, col, QTableWidgetItem(value))
+            if e["id"] == self._selected_exam_id:
+                self.table.selectRow(row)
+        self.table.blockSignals(False)
+        if self._selected_exam_id not in self._visible_ids:
+            self._selected_exam_id = None
         self.table.setVisible(bool(rows))
         self.empty_label.setVisible(not rows)
+        self._update_open_button()
+
+    def _on_selection(self):
+        rows = self.table.selectionModel().selectedRows()
+        row = rows[0].row() if rows else None
+        self._selected_exam_id = (self._visible_ids[row]
+                                  if row is not None and row < len(self._visible_ids) else None)
+        self._update_open_button()
+
+    def _selected_exam(self):
+        return next((e for e in self._exams if e["id"] == self._selected_exam_id), None)
+
+    def _update_open_button(self):
+        exam = self._selected_exam()
+        self.open_btn.setEnabled(exam is not None and not exam["submitted"])
+
+    def _open_selected(self):
+        from client.network_exam_service import ServiceError
+        from ui.exam_taking_dialog import ExamTakingDialog
+
+        exam = self._selected_exam()
+        if exam is None:
+            return
+        if exam["submitted"]:
+            show_info(self, "Zaten gönderildi", "Bu sınava cevap gönderdin, tekrar girilemez.")
+            return
+        try:
+            package = self.exam_service.get_exam(exam["id"])
+        except ServiceError as e:
+            show_error(self, "Sınav açılamadı", str(e))
+            self._poll()
+            return
+        if package["already_submitted"]:
+            show_info(self, "Zaten gönderildi", "Bu sınava cevap gönderdin, tekrar girilemez.")
+            self._poll()
+            return
+        answers = self._saved_answers.setdefault(exam["id"], {})
+        ExamTakingDialog(package, self.exam_service, answers, self).exec()
+        self._poll()

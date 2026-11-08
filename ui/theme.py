@@ -176,6 +176,22 @@ QComboBox::down-arrow { image: url($arrow); width: 12px; height: 8px; margin-rig
 QDoubleSpinBox::up-button, QDoubleSpinBox::down-button,
 QSpinBox::up-button, QSpinBox::down-button { width: 0px; border: none; }
 
+QLabel#examTimer { font-size: 30px; font-weight: 700; }
+QLabel#examTimer[urgent="true"] { color: $danger; }
+
+QPushButton[nav] { padding: 0px; min-height: 42px; min-width: 42px; border-radius: 8px; }
+QPushButton[nav="answered"] { background: #DCE7F7; border: 1px solid #9DB8E3; }
+QPushButton[nav="empty"] { background: $surface; }
+QPushButton[current="true"] { border: 2px solid $primary; color: $primary; }
+
+QFrame#choiceCard { background: $surface; border: 2px solid $border; border-radius: 10px; }
+QFrame#choiceCard:hover { border-color: #9DB8E3; }
+QFrame#choiceCard[selected="true"] { background: #EEF4FD; border-color: $primary; }
+
+QLabel#statusPending { color: #B45309; font-weight: 600; }
+QFrame#answerBox { background: #F7F9FC; border: 1px solid $border; border-radius: 8px; }
+QCheckBox { spacing: 8px; }
+
 QPushButton:disabled { color: #9AA3B2; background: $bg; border-color: $border; }
 QPushButton[variant="primary"]:disabled { background: #9DB8E3; border-color: #9DB8E3; color: #FFFFFF; }
 QPushButton[variant="link"]:disabled { background: transparent; border: none; }

@@ -6,6 +6,7 @@ Veritabanı katmanı testi. GERÇEK veritabanına dokunmaz, geçici dosya kullan
     python -m db.test_db
 """
 
+import sqlite3
 import tempfile
 from pathlib import Path
 
@@ -74,6 +75,30 @@ def main():
         assert len(d.list_students()) == 2
         assert len(d.list_students("1A")) == 1
         print("[OK] Öğrenci listeleme")
+
+    # Eski şemada oluşturulmuş veritabanı otomatik güncellenmeli (migration)
+    with tempfile.TemporaryDirectory() as tmp:
+        d.DB_PATH = Path(tmp) / "old.db"
+        raw = sqlite3.connect(d.DB_PATH)
+        raw.execute(
+            "CREATE TABLE answers (id INTEGER PRIMARY KEY AUTOINCREMENT, submission_id INTEGER NOT NULL, "
+            "question_id INTEGER NOT NULL, given_answer TEXT, score REAL NOT NULL DEFAULT 0, "
+            "is_correct INTEGER NOT NULL DEFAULT 0)"
+        )
+        raw.execute("INSERT INTO answers (submission_id, question_id, given_answer, score, is_correct) "
+                    "VALUES (1, 1, 'eski cevap', 5, 1)")
+        raw.commit()
+        raw.close()
+
+        d.init_db()
+        d.init_db()   # ikinci çağrı hata vermemeli
+        conn = d.get_connection()
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(answers)")}
+        row = conn.execute("SELECT * FROM answers").fetchone()
+        conn.close()
+        assert {"graded", "graded_at"} <= columns
+        assert row["given_answer"] == "eski cevap" and row["score"] == 5 and row["graded"] == 1
+        print("[OK] Eski şemalı veritabanı güncellendi, eski cevap satırı korundu (graded = 1)")
 
     print("\nTüm testler geçti.")
 
