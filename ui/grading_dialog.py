@@ -128,9 +128,12 @@ class AnswerCard(QFrame):
         self.layout_.addWidget(_answer_box(a["given_answer"]))
         self.layout_.addWidget(_caption("Beklenen cevap"))
         self.layout_.addWidget(_answer_box(a["answer_key"], muted=True))
-        if sub_db.matches_expected(a, a["given_answer"]):
-            same = QLabel("Cevap, beklenen cevapla birebir aynı.")
+        if a["graded"] and a["graded_at"] is None and a["is_correct"]:
+            # Gönderim anında sistem verdi (cevap beklenen cevapla birebir aynıydı)
+            same = QLabel("Cevap beklenen cevapla birebir aynı olduğu için otomatik tam puan "
+                          "verildi. İstersen puanı değiştirebilirsin.")
             same.setObjectName("statusOk")
+            same.setWordWrap(True)
             self.layout_.addWidget(same)
 
         self.spin = QDoubleSpinBox()
@@ -171,8 +174,10 @@ class AnswerCard(QFrame):
                 self._set_status("Yanlış   0 puan", "errorText")
         elif a["given_answer"] is None:
             self._set_status("Boş   0 puan", "countLabel")
+        elif a["graded"] and a["graded_at"] is None:
+            self._set_status(f"Otomatik puan   {a['score']:g} / {self.max_points:g}", "statusOk")
         elif a["graded"]:
-            self._set_status(f"Puanlandı   {a['score']:g} / {self.max_points:g}", "statusOk")
+            self._set_status(f"Elle puanlandı   {a['score']:g} / {self.max_points:g}", "statusOk")
         else:
             self._set_status("Puanlanmayı bekliyor", "statusPending")
 
@@ -187,6 +192,7 @@ class AnswerCard(QFrame):
             return
         self.answer["score"] = round(float(points), 2)
         self.answer["graded"] = True
+        self.answer["graded_at"] = "elle"   # yalnızca 'boş değil' bilgisi kullanılır
         self.answer["is_correct"] = self.answer["score"] >= self.max_points
         self.spin.setValue(self.answer["score"])
         self._refresh_status()

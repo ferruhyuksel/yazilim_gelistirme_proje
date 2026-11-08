@@ -40,6 +40,7 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
       
 
 ## Notlar (rapor için)
+- GÜNCEL KURAL (Aşama 6 sonrası): Klasik cevap beklenen cevapla birebir aynıysa (büyük/küçük harf ve boşluk önemsiz) gönderim anında otomatik tam puan; dolu ama farklıysa graded=0 (bekliyor) ve eğitmen elle puanlar; boş cevap 0. Otomatik puanlanan satırda graded_at boş, elle puanlananda dolu. Eğitmen otomatik puanı da değiştirebilir. Bu, vize isteri 7'deki 'cevap anahtarına göre anında puanlama' ile eğitmenin elle puanlaması isteğinin birleşimidir.
 - KARAR: Klasik sorular otomatik puanlanmaz. Dolu cevap graded=0 (bekliyor) kaydedilir, eğitmen cevabı beklenen cevapla yan yana görüp elle puanlar (db/submissions.py grade_answer). Puan 0 ile sorunun sınavdaki puanı arasında, 2 ondalığa yuvarlanır, tekrar puanlanabilir. Çoktan seçmeli sorular otomatik puanlanır.
 - Boş klasik cevap puanlanmayı beklemez (graded=1, 0 puan).
 - 'Beklenen cevapla birebir aynı' notu yalnızca ipucudur, puan vermez (matches_expected).

@@ -97,11 +97,8 @@ def main():
 
         rows = sub.list_submissions(exam)
         assert len(rows) == 1 and rows[0]["username"] == "ogr1"
-        assert rows[0]["total_score"] == 60 and rows[0]["pending_count"] == 1
-        print("[OK] Sunucu kaydetti: ogr1 = 60 (çoktan seçmeli otomatik, klasik cevap puanlanmayı bekliyor)")
-        answer = [a for a in sub.get_submission_answers(rows[0]["id"]) if a["type"] == qb.TYPE_CLASSIC][0]
-        assert sub.grade_answer(answer["answer_id"], 40) == 100
-        print("[OK] Eğitmen klasik cevabı puanladı: ogr1 = 100")
+        assert rows[0]["total_score"] == 100 and rows[0]["pending_count"] == 0
+        print("[OK] Sunucu kaydetti: ogr1 = 100 (klasik cevap beklenen cevapla birebir aynı: otomatik tam puan)")
 
         print("[OK] İkinci gönderim:", expect_service_error(e1.submit_exam, exam, {str(q_mc): 1}))
         assert sub.list_submissions(exam)[0]["total_score"] == 100   # ilk puan değişmedi
@@ -110,10 +107,14 @@ def main():
         print("[OK] Öğrenci listesinde 'gönderildi' işaretli, ilk puan değişmedi")
 
         # başka öğrenci kendi adına gönderir, başkasının adına gönderemez (kimlik token'dan)
-        r = e2.submit_exam(exam, {str(q_mc): 0})
-        assert [x["username"] for x in sub.list_submissions(exam)] == ["ogr1", "ogr2"]
-        assert sub.list_submissions(exam)[1]["total_score"] == 0
-        print("[OK] Başka öğrenci kendi adına gönderdi:", r["submitted_at"])
+        r = e2.submit_exam(exam, {str(q_mc): 0, str(q_cl): "bambaşka bir cevap"})
+        rows = sub.list_submissions(exam)
+        assert [x["username"] for x in rows] == ["ogr1", "ogr2"]
+        assert rows[1]["total_score"] == 0 and rows[1]["pending_count"] == 1
+        print("[OK] Başka öğrenci kendi adına gönderdi: 0 puan, klasik cevap puanlanmayı bekliyor")
+        answer = [a for a in sub.get_submission_answers(rows[1]["id"]) if a["type"] == qb.TYPE_CLASSIC][0]
+        assert sub.grade_answer(answer["answer_id"], 25) == 25
+        print("[OK] Eğitmen bekleyen klasik cevabı puanladı: ogr2 = 25")
 
         # süre kuralları (sunucu saatine göre)
         set_start = lambda dt: _set_start(exam, dt)

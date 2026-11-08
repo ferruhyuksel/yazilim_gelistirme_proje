@@ -195,8 +195,42 @@ def main():
         assert sub.matches_expected(q, "IŞIK   HIZI") and sub.matches_expected(q, "ışık hızı")
         assert not sub.matches_expected(q, "isik hizi") and not sub.matches_expected(q, None)
         assert not sub.matches_expected({"type": qb.TYPE_MULTIPLE_CHOICE, "answer_key": "1"}, "1")
-        assert sub.is_correct({"type": qb.TYPE_CLASSIC, "answer_key": "x"}, "x") is False
-        print("[OK] İpucu: 'beklenen cevapla aynı' tespit ediliyor ama klasik soru asla otomatik doğru sayılmıyor")
+        assert sub.is_correct({"type": qb.TYPE_CLASSIC, "answer_key": "x"}, "x") is False   # klasik için matches_expected kullanılır
+        print("[OK] Cevap karşılaştırma fonksiyonu: Türkçe büyük/küçük harf ve boşluklar önemsiz, harf farkı önemli")
+
+        # --- KLASİK CEVAP BİREBİR AYNIYSA OTOMATİK TAM PUAN
+        exam4 = ex.create_exam("Otomatik klasik", 30, [(q_cl, 50), (q_mc, 50)], teacher)
+        ex.publish_exam(exam4)
+
+        ra = sub.submit_exam(exam4, s2, {str(q_cl): "  ADRES    tutar ", str(q_mc): 2})
+        assert ra["total_score"] == 100 and ra["pending_count"] == 0 and ra["correct_count"] == 2
+        da = sub.get_submission_answers(ra["submission_id"])
+        cl = [x for x in da if x["type"] == qb.TYPE_CLASSIC][0]
+        assert cl["graded"] and cl["is_correct"] and cl["score"] == 50 and cl["graded_at"] is None
+        print("[OK] Klasik cevap beklenen cevapla birebir aynı: anında tam puan (toplam 100), bekleme yok, graded_at boş (otomatik)")
+
+        rb = sub.submit_exam(exam4, s1, {str(q_cl): "adres tutar kadar", str(q_mc): 2})
+        assert rb["total_score"] == 50 and rb["pending_count"] == 1 and rb["correct_count"] == 1
+        db_ = [x for x in sub.get_submission_answers(rb["submission_id"]) if x["type"] == qb.TYPE_CLASSIC][0]
+        assert not db_["graded"] and db_["score"] == 0
+        print("[OK] Farklı klasik cevap: 0 puan ve 'bekliyor', yalnızca çoktan seçmeli puan aldı (50)")
+
+        rc = sub.submit_exam(exam4, s3, {str(q_mc): 2})
+        assert rc["pending_count"] == 0 and rc["total_score"] == 50   # boş klasik cevap: bekleme yok
+        print("[OK] Boş klasik cevap: 0 puan, bekleme yok")
+
+        # otomatik verilen puan eğitmen tarafından değiştirilebilir
+        assert sub.grade_answer(cl["answer_id"], 10) == 60
+        cl2 = [x for x in sub.get_submission_answers(ra["submission_id"]) if x["type"] == qb.TYPE_CLASSIC][0]
+        assert cl2["score"] == 10 and not cl2["is_correct"] and cl2["graded_at"]
+        print("[OK] Otomatik tam puan, eğitmen tarafından 10'a düşürüldü (toplam 60, graded_at doldu)")
+
+        # bekleyen cevabı eğitmen puanlar
+        assert sub.grade_answer(db_["answer_id"], 30) == 80
+        print("[OK] Bekleyen cevap elle puanlandı (50 -> 80)")
+        summary4 = sub.results_summary(exam4)
+        assert summary4["pending_count"] == 0 and summary4["submission_count"] == 3
+        print("[OK] Özet: 3 gönderim, bekleyen 0")
 
     print("\nTüm testler geçti.")
 

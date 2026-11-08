@@ -4,9 +4,12 @@ db/submissions.py
 
 Puanlama kuralı:
   çoktan seçmeli : gönderim anında otomatik (şık sırası, cevap anahtarıyla karşılaştırılır)
-  klasik         : OTOMATİK PUANLANMAZ. Dolu cevap 0 puanla ve graded = 0 ("bekliyor")
-                   olarak kaydedilir, eğitmen grade_answer ile elle puanlar. Boş cevap
-                   puanlanacak bir şey olmadığı için 0 ve graded = 1'dir.
+  klasik         : cevap beklenen cevapla BİREBİR aynıysa (büyük/küçük harf ve fazla boşluk
+                   farkı yok sayılır) gönderim anında otomatik TAM PUAN verilir. Dolu ama
+                   farklı cevap 0 puanla ve graded = 0 ("bekliyor") kaydedilir, eğitmen
+                   grade_answer ile elle puanlar. Boş cevap 0 ve graded = 1'dir.
+                   Otomatik verilen puan da eğitmen tarafından değiştirilebilir.
+                   (Otomatik puanlanan satırda graded_at boştur, elle puanlananda doludur.)
 Toplam puan (submissions.total_score) her puanlamada yeniden hesaplanır.
 
 Gönderim kuralları (hepsi sunucu tarafında, istemciye güvenilmez):
@@ -41,8 +44,8 @@ MAX_ANSWER_LENGTH = 5000
 # --------------------------------------------------------------------------
 
 def is_correct(question, given):
-    """Otomatik doğruluk: YALNIZCA çoktan seçmeli. Klasik sorular için her zaman False
-    (onlar eğitmen tarafından elle puanlanır)."""
+    """Çoktan seçmeli sorunun şıkkı doğru mu? Klasik sorular için her zaman False
+    (onlar için matches_expected kullanılır, geri kalanı eğitmen puanlar)."""
     if given is None or question["type"] != TYPE_MULTIPLE_CHOICE:
         return False
     return given == int(question["answer_key"])
@@ -55,8 +58,8 @@ def normalize_text(text):
 
 
 def matches_expected(question, given):
-    """İPUCU (puan vermez): klasik cevap beklenen cevapla birebir aynı mı?
-    Eğitmen ekranında 'beklenen cevapla aynı' notu göstermek için kullanılır."""
+    """Klasik cevap beklenen cevapla birebir aynı mı (büyük/küçük harf ve boşluk önemsiz)?
+    Aynıysa gönderim anında otomatik tam puan verilir."""
     if given is None or question["type"] != TYPE_CLASSIC:
         return False
     return normalize_text(given) == normalize_text(question["answer_key"])
@@ -90,10 +93,10 @@ def _validate_answer(question, value):
 # --------------------------------------------------------------------------
 
 def submit_exam(exam_id, student_id, answers, now=None):
-    """Cevapları kabul eder, çoktan seçmelileri puanlar ve kaydeder.
+    """Cevapları kabul eder, otomatik puanlanabilenleri puanlar ve kaydeder.
     Dönen sözlük: submission_id, submitted_at, late (tolerans içinde gelen), total_score,
-    max_score, exam_title, correct_count, pending_count (elle puanlanmayı bekleyen klasik
-    cevap sayısı). Sunucu bunların yalnızca submitted_at kısmını öğrenciye iletir."""
+    max_score, exam_title, correct_count (otomatik doğru sayılanlar), pending_count (elle
+    puanlanmayı bekleyen klasik cevap sayısı). Sunucu bunların yalnızca submitted_at kısmını öğrenciye iletir."""
     if not isinstance(answers, dict):
         raise ValueError("Geçersiz cevap verisi.")
     now = now or datetime.now()
@@ -139,10 +142,11 @@ def submit_exam(exam_id, student_id, answers, now=None):
         correct_count = pending_count = 0
         for q in questions:
             given = clean.get(q["id"])
-            correct = is_correct(q, given)
+            # Çoktan seçmeli: şık doğru mu. Klasik: beklenen cevapla birebir aynı mı.
+            correct = is_correct(q, given) or matches_expected(q, given)
             score = q["points"] if correct else 0.0
-            # Dolu klasik cevap: puanı eğitmen verecek
-            graded = 0 if (q["type"] == TYPE_CLASSIC and given is not None) else 1
+            # Dolu ama beklenen cevapla aynı olmayan klasik cevabın puanını eğitmen verecek
+            graded = 0 if (q["type"] == TYPE_CLASSIC and given is not None and not correct) else 1
             total += score
             max_score += q["points"]
             correct_count += 1 if correct else 0
