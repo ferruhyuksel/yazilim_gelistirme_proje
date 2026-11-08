@@ -16,6 +16,8 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
   NetworkAuthService (öğrenci) aynı metotlara sahip.
 
 ## Tamamlananlar
+- [x] Aşama 4: Sınav oluşturma ve dağıtım (db/exams.py; testler: python -m db.test_exams,
+      python -m server.test_server_exams; eğitmende 'Sınavlar' sekmesi, öğrencide canlı sınav listesi)
 - [x] Aşama 3: Soru bankası (db/question_bank.py, test: python -m db.test_question_bank;
       eğitmen panelinde 'Soru bankası' sekmesi, kategori yönetimi)
 - [x] Aşama 2b: main_instructor.py (sunucu + canlı istemci listesi), main_student.py (bağlan + giriş),
@@ -27,12 +29,20 @@ Python 3 + PySide6 + SQLite + socket/threading + JSON (Linux)
       client/network_auth_service.py). Test: python -m server.test_server
 
 ## Sıradaki
+- [ ] Aşama 5: Öğrenci sınav çözme ekranı (soruları göster, geri sayım, cevapları gönder)
+- [ ] Aşama 6: Cevap toplama, süre kontrolü sunucuda, log dosyaları
 - [ ] Aşama 4: Sınav oluşturma ve dağıtım (aşağıdaki eski satırlar geçerli)
 - [ ] Aşama 2c (gerçek LAN testi, 2 bilgisayar) ve Aşama 3 (soru bankası). Önce: Arayüzü ağa bağlama: main_instructor.py (sunucuyu başlatır, bağlı
       istemcileri gösterir), main_student.py (sunucuya bağlan ekranı + giriş).
       
 
 ## Notlar (rapor için)
+- Dağıtım: öğrenci uygulaması sunucuya 3 sn'de bir sorar (polling); yayınlanan sınav en geç birkaç saniyede görünür.
+- Süre: yayınlanma anı = başlangıç, bitiş = başlangıç + süre. Süreyi sunucu hesaplar (istemci saatine güvenilmez), süre dolunca sınav otomatik kapanır.
+- Öğrenci paketi (db/exams.py get_exam_for_student) alanları tek tek seçerek oluşturulur: cevap anahtarı ağa çıkmaz. Testle doğrulanıyor (ham ağ yanıtında 'answer_key' ve beklenen cevap metni aranıyor).
+- Yaşam döngüsü: taslak -> yayında -> kapandı. Yalnızca taslak düzenlenir. Gönderimi olan veya yayındaki sınav silinemez.
+- list_exams/get_exam istekleri yalnızca öğrenci rolüne açık (rol token'dan bulunur).
+- Bilinen sınır: sınavlar tüm öğrencilere gider, sınıfa göre hedefleme yok.
 - Çoktan seçmelide doğru cevap şık SIRASI olarak saklanır (answer_key = "2"), öğrenci cevabı da sıra olarak gelecek.
 - Sınavda kullanılan soru silinemez, yayınlanmış/kapanmış sınavdaki soru düzenlenemez (cascade ile öğrenci cevaplarının silinmesini önler).
 - Kategori silinince sorular kalır, kategorisiz olur.

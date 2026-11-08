@@ -8,6 +8,8 @@ Sonraki aşamalarda eklenecek:
   - Öğrenci: sınav listesi ve sınav çözme ekranı
 """
 
+import time
+
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView, QFrame, QHBoxLayout, QHeaderView, QLabel, QMainWindow,
@@ -16,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from common.net_utils import get_local_ip
 from ui.change_password_dialog import ChangePasswordDialog
+from ui.formatting import format_remaining
 
 
 class BasePanel(QMainWindow):
@@ -25,11 +28,12 @@ class BasePanel(QMainWindow):
     ROLE_LABEL = ""
     HINT = ""
 
-    def __init__(self, service, user, server=None):
+    def __init__(self, service, user, server=None, exam_service=None):
         super().__init__()
         self.service = service
         self.user = user
         self.server = server
+        self.exam_service = exam_service
         self.setWindowTitle(f"{self.TITLE} - {user['full_name']}")
         self.resize(1180, 760)
         self.setMinimumSize(960, 640)
@@ -123,17 +127,19 @@ class BasePanel(QMainWindow):
 class InstructorPanel(BasePanel):
     TITLE = "Eğitmen paneli"
     ROLE_LABEL = "Eğitmen"
-    HINT = ("Soru bankası hazır. Sınav oluşturma, sonuçlar ve loglar sonraki "
+    HINT = ("Soru bankası ve sınavlar hazır. Sonuçlar ve loglar sonraki "
             "aşamalarda eklenecek.")
 
     def _build_body(self):
         # Soru bankası yalnızca eğitmen tarafında kullanıldığı için burada içe aktarılır
         # (öğrenci uygulaması veritabanı modüllerini hiç yüklemez).
+        from ui.exam_view import ExamView
         from ui.question_bank_view import QuestionBankView
 
         tabs = QTabWidget()
         tabs.addTab(super()._build_body(), "Genel bakış")
         tabs.addTab(QuestionBankView(self.user["id"]), "Soru bankası")
+        tabs.addTab(ExamView(self.user["id"], self.server), "Sınavlar")
         return tabs
 
     def _extra_widgets(self):
@@ -203,4 +209,97 @@ class InstructorPanel(BasePanel):
 class StudentPanel(BasePanel):
     TITLE = "Öğrenci paneli"
     ROLE_LABEL = "Öğrenci"
-    HINT = "Eğitmenin yayınladığı sınavlar sonraki aşamalarda burada görünecek."
+    HINT = "Eğitmenin yayınladığı sınavlar aşağıda görünür."
+
+    POLL_INTERVAL_MS = 3000
+
+    def _extra_widgets(self):
+        if self.exam_service is None:
+            return []
+        return [self._build_exam_card()]
+
+    def _build_exam_card(self):
+        card = QFrame()
+        card.setObjectName("card")
+
+        title = QLabel("Aktif sınavlar")
+        title.setObjectName("sectionTitle")
+        self.error_label = QLabel()
+        self.error_label.setObjectName("errorText")
+        self.error_label.setWordWrap(True)
+        self.error_label.hide()
+
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(
+            ["Sınav", "Soru", "Toplam puan", "Kalan süre", "Durum"])
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(44)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setShowGrid(False)
+        header = self.table.horizontalHeader()
+        header.setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        for col, width in ((1, 80), (2, 130), (3, 130), (4, 130)):
+            header.setSectionResizeMode(col, QHeaderView.Fixed)
+            self.table.setColumnWidth(col, width)
+
+        self.empty_label = QLabel("Şu an aktif sınav yok.\n"
+                                  "Eğitmen bir sınav yayınlayınca burada görünecek.")
+        self.empty_label.setObjectName("emptyState")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(36, 28, 36, 28)
+        layout.setSpacing(12)
+        layout.addWidget(title)
+        layout.addWidget(self.error_label)
+        layout.addWidget(self.table, stretch=1)
+        layout.addWidget(self.empty_label, stretch=1)
+
+        self._exams = []
+        self._fetched_at = time.monotonic()
+        # Sınavlar sunucudan birkaç saniyede bir sorulur (polling). Kalan süre iki
+        # sorgu arasında yerel saatle geriye sayılır, her sorguda sunucu değeriyle düzeltilir.
+        self._poll_timer = QTimer(self)
+        self._poll_timer.timeout.connect(self._poll)
+        self._poll_timer.start(self.POLL_INTERVAL_MS)
+        self._tick_timer = QTimer(self)
+        self._tick_timer.timeout.connect(self._render)
+        self._tick_timer.start(1000)
+        self._poll()
+        return card
+
+    def _poll(self):
+        from client.network_exam_service import ServiceError
+        try:
+            exams = self.exam_service.list_exams()
+        except ServiceError as e:
+            self.error_label.setText(
+                f"{e}. Çıkış yapıp sunucuyu değiştirerek yeniden bağlanabilirsin."
+                if e.connection_lost else str(e))
+            self.error_label.show()
+            if e.connection_lost:
+                self._poll_timer.stop()
+                self._tick_timer.stop()
+                self._exams = []
+                self._render()
+            return
+        self.error_label.hide()
+        self._exams = exams
+        self._fetched_at = time.monotonic()
+        self._render()
+
+    def _render(self):
+        elapsed = time.monotonic() - self._fetched_at
+        rows = [e for e in self._exams if e["remaining_seconds"] - elapsed > 0]
+        self.table.setRowCount(len(rows))
+        for row, e in enumerate(rows):
+            left = e["remaining_seconds"] - elapsed
+            cells = (e["title"], str(e["question_count"]), f"{e['total_points']:g}",
+                     format_remaining(left),
+                     "Gönderildi" if e["submitted"] else "Çözülmedi")
+            for col, value in enumerate(cells):
+                self.table.setItem(row, col, QTableWidgetItem(value))
+        self.table.setVisible(bool(rows))
+        self.empty_label.setVisible(not rows)

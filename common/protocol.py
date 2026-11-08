@@ -24,6 +24,8 @@ LOGIN = "login"
 REGISTER = "register"
 CHANGE_PASSWORD = "change_password"
 LOGOUT = "logout"
+LIST_EXAMS = "list_exams"   # öğrenci: şu an açık sınavlar
+GET_EXAM = "get_exam"       # öğrenci: bir sınavın soruları (cevap anahtarsız)
 
 _HEADER = struct.Struct("!I")
 

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication
 
 from client.network_auth_service import NetworkAuthService
 from client.network_client import NetworkClient
+from client.network_exam_service import NetworkExamService
 from db.database import ROLE_STUDENT
 from ui.auth_service import AuthError
 from ui.connect_window import ConnectWindow
@@ -27,6 +28,7 @@ class StudentController:
     def __init__(self):
         self.client = NetworkClient()
         self.service = NetworkAuthService(self.client)
+        self.exam_service = NetworkExamService(self.client)
         self.session = Session()
         self.connect_window = None
         self.login_window = None
@@ -78,7 +80,8 @@ class StudentController:
             return
 
         self.session.start(user, token=self.client.token)
-        self.panel = StudentPanel(self.service, self.session.user)
+        self.panel = StudentPanel(self.service, self.session.user,
+                                  exam_service=self.exam_service)
         self.panel.logout_requested.connect(self.on_logout)
         self.panel.show()
         self.login_window.close()

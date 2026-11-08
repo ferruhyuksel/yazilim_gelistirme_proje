@@ -51,7 +51,7 @@ QWidget {
 QMainWindow, QDialog { background: $bg; }
 QLabel { background: transparent; }
 
-QLineEdit, QPlainTextEdit, QDoubleSpinBox, QComboBox {
+QLineEdit, QPlainTextEdit, QDoubleSpinBox, QSpinBox, QComboBox {
     background: $surface;
     border: 1px solid $border;
     border-radius: 6px;
@@ -60,7 +60,7 @@ QLineEdit, QPlainTextEdit, QDoubleSpinBox, QComboBox {
     selection-background-color: $primary;
     selection-color: #FFFFFF;
 }
-QLineEdit:focus, QPlainTextEdit:focus, QDoubleSpinBox:focus, QComboBox:focus { border: 1px solid $primary; }
+QLineEdit:focus, QPlainTextEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus { border: 1px solid $primary; }
 
 QPushButton {
     background: $surface;
@@ -144,6 +144,7 @@ QPushButton[variant="icon"]:hover { color: $danger; background: transparent; }
 QLabel#pageTitle { font-size: 24px; font-weight: 700; }
 QLabel#optionLetter { font-weight: 700; color: $muted; min-width: 18px; }
 QLabel#countLabel { color: $muted; }
+QLabel#errorText { color: $danger; font-weight: 600; }
 QLabel#emptyState { color: $muted; font-size: 16px; }
 QRadioButton { spacing: 8px; }
 
@@ -172,7 +173,8 @@ QTabBar::tab:hover:!selected { color: $ink; }
 QComboBox { padding-right: 36px; }
 QComboBox::drop-down { border: none; background: transparent; width: 34px; }
 QComboBox::down-arrow { image: url($arrow); width: 12px; height: 8px; margin-right: 14px; }
-QDoubleSpinBox::up-button, QDoubleSpinBox::down-button { width: 0px; border: none; }
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button,
+QSpinBox::up-button, QSpinBox::down-button { width: 0px; border: none; }
 
 QPushButton:disabled { color: #9AA3B2; background: $bg; border-color: $border; }
 QPushButton[variant="primary"]:disabled { background: #9DB8E3; border-color: #9DB8E3; color: #FFFFFF; }

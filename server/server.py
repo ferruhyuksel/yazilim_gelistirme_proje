@@ -17,6 +17,7 @@ from datetime import datetime
 
 from common import protocol as p
 from db import database as db
+from db import exams as exam_db
 
 log = logging.getLogger("sinav.server")
 
@@ -43,6 +44,8 @@ class ExamServer:
             p.REGISTER: self._h_register,
             p.CHANGE_PASSWORD: self._h_change_password,
             p.LOGOUT: self._h_logout,
+            p.LIST_EXAMS: self._h_list_exams,
+            p.GET_EXAM: self._h_get_exam,
         }
 
     # ------------------------------------------------------------------
@@ -200,6 +203,13 @@ class ExamServer:
             raise RequestError("Oturum geçersiz, lütfen tekrar giriş yap.")
         return session
 
+    def _require_student(self, token, cid):
+        """Giriş yapılmış VE rolü öğrenci olmalı. Rol token'dan bulunur, istemciden alınmaz."""
+        session = self._auth(token, cid)
+        if session["user"]["role"] != db.ROLE_STUDENT:
+            raise RequestError("Bu işlem yalnızca öğrenciler içindir.")
+        return session
+
     # --- işleyiciler (handler) ---
 
     def _h_ping(self, data, token, cid):
@@ -255,3 +265,15 @@ class ExamServer:
             if cid in self._clients:
                 self._clients[cid]["username"] = None
         return {}
+
+    def _h_list_exams(self, data, token, cid):
+        session = self._require_student(token, cid)
+        return {"exams": exam_db.list_active_exams(session["user"]["id"])}
+
+    def _h_get_exam(self, data, token, cid):
+        session = self._require_student(token, cid)
+        exam_id = data.get("exam_id")
+        if not isinstance(exam_id, int) or isinstance(exam_id, bool):
+            raise RequestError("Eksik veya geçersiz alan: exam_id")
+        # Cevap anahtarsız öğrenci paketi (ayrıntı: db/exams.py)
+        return {"exam": exam_db.get_exam_for_student(exam_id, session["user"]["id"])}
